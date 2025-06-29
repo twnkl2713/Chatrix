@@ -6,8 +6,7 @@ use rocket::serde::{Serialize, Deserialize};
 use rocket::tokio::sync::broadcast::{channel, Sender, error::RecvError};
 use rocket::tokio::select;
 use std::collections::HashMap;
-use rocket::tokio::sync::Mutex;
-use rocket::http::Status;
+use rocket::tokio::sync::Mutex; // to notify all
 use std::sync::Arc;
 use chrono::Utc;
 
@@ -15,9 +14,9 @@ use chrono::Utc;
 #[serde(crate = "rocket::serde")]
 
 struct Message {
-    #[field(validate = len(..30))]
+    #[field(validate = len(..30))] // limiting room name to 30 chars
     pub room: String,
-    #[field(validate = len(..20))]
+    #[field(validate = len(..20))] // limiting username to 20 chars
     pub username: String,
     pub message: String,
     pub timestamp: Option<String>,
@@ -27,6 +26,7 @@ struct Message {
 // pulled from a briadcast queue sent by the 'post' handler
 #[get("/events")]
 async fn events(queue: &State<Sender<Message>>, mut end: Shutdown) -> EventStream![] {
+    // subscribe to broadcast channel to receive all msgs
     let mut rx = queue.subscribe();
     EventStream! {
         loop {
@@ -36,14 +36,14 @@ async fn events(queue: &State<Sender<Message>>, mut end: Shutdown) -> EventStrea
                     Err(RecvError::Closed) => break,
                     Err(RecvError::Lagged(_)) => continue,
                 },
-                _ = &mut end => break,
+                _ = &mut end => break, // shutdown gracefully if client disconnects
             };
             yield Event::json(&msg);
         }
     }
 }
 
-type RoomList = Arc<Mutex<HashMap<String, Vec<Message>>>>;
+type RoomList = Arc<Mutex<HashMap<String, Vec<Message>>>>; // a shared ds to store msgs by room
 
 // receive a msg from a form submission and broadcast it to any receivers
 #[post("/message", data = "<form>")]
@@ -54,12 +54,12 @@ async fn post(
 ) 
 {
     let mut msg = form.into_inner();
-    msg.timestamp = Some(Utc::now().to_rfc3339());
+    msg.timestamp = Some(Utc::now().to_rfc3339()); // add server-generated timestamp
    
-    let mut rooms = room_list.lock().await;
+    let mut rooms = room_list.lock().await; // store the msg in the room list
     rooms.entry(msg.room.clone()).or_default().push(msg.clone());
 
-    let _res = queue.send(msg);
+    let _res = queue.send(msg); // broadcast the msg to all connected SSE clients
 }
 
 #[launch]
