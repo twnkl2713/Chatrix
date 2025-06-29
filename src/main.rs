@@ -46,16 +46,6 @@ async fn events(queue: &State<Sender<Message>>, mut end: Shutdown) -> EventStrea
 
 type RoomList = Arc<Mutex<HashMap<String, Vec<Message>>>>;
 
-#[delete("/room/<room>")]
-async fn delete_room(room: String, state: &State<RoomList>) -> Status {
-    let mut rooms = state.lock().await;
-    if rooms.remove(&room).is_some() {
-        Status::Ok
-    } else {
-        Status::NotFound
-    }
-}
-
 // receive a msg from a form submission and broadcast it to any receivers
 #[post("/message", data = "<form>")]
 async fn post(
