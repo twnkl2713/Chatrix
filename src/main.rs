@@ -9,7 +9,6 @@ use std::collections::HashMap;
 use rocket::tokio::sync::Mutex;
 use rocket::http::Status;
 use std::sync::Arc;
-use rocket::delete;
 use chrono::Utc;
 
 #[derive(Debug, Clone, FromForm, Serialize, Deserialize)]
@@ -68,6 +67,6 @@ fn rocket() -> _ {
     rocket::build()
         .manage(channel::<Message>(1024).0)
         .manage(Arc::new(Mutex::new(HashMap::<String, Vec<Message>>::new())))
-        .mount("/", routes![post, events, delete_room])
+        .mount("/", routes![post, events])
         .mount("/", FileServer::from(relative!("static")))
 } 
